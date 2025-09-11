@@ -1,0 +1,594 @@
+\documentclass[12pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{graphicx}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{float}
+\usepackage{hyperref}
+\usepackage{array}
+\usepackage{booktabs}
+
+% Code listing settings
+\lstset{
+    language=Python,
+    basicstyle=\small\ttfamily,
+    keywordstyle=\color{blue},
+    stringstyle=\color{black},
+    numberstyle=\tiny\color{gray},
+    stepnumber=1,
+    commentstyle=\color{gray},
+    numbersep=10pt,
+    breaklines=true,
+    frame=single,
+    captionpos=b
+}
+
+\begin{document}
+
+\begin{titlepage}
+	\centering
+	\vspace*{0.5cm}
+	\includegraphics[width=8cm]{University_of_Moratuwa_logo.png} % Replace with the path to your university logo
+	\par\vspace{0.5cm}
+	\Large
+	Department of Electronic \& Telecommunication Engineering,\\
+	University of Moratuwa, Sri Lanka.
+	\vspace{1cm}\\
+	{\LARGE\bfseries Assignment - 02\par}
+        \vspace{2cm}
+	{\LARGE\bfseries Hapuarachchi HADND\par}
+        {\LARGE\bfseries 220212A\par}
+	\vspace{2cm}
+	Submitted in partial fulfillment of the requirements for the module \\
+	\textbf{ EN3150- Pattern Recognition}\\
+	\vspace{1cm}
+	{\large \today}
+	\vfill
+\date{}
+\end{titlepage}
+
+\newpage
+\tableofcontents
+\newpage
+
+\section{Linear Regression}
+
+\subsection{Reason Behind OLS Misalignment}
+
+The Ordinary Least Squares (OLS) fitted line is not aligned with the majority of data points due to the presence of \textbf{outliers} in the dataset. 
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=1\linewidth]{q1.png}
+\end{figure}
+\begin{itemize}
+    \item OLS minimizes the sum of squared residuals: $\frac{1}{N}\sum_{i=1}^{N}(y_i - \hat{y}_i)^2$
+    \item Squared errors give disproportionate weight to outliers since large deviations are squared
+    \item The outliers visible in Figure 1 have very large residuals, which dominate the loss function
+    \item The optimization process pulls the fitted line toward these outliers to reduce their squared errors
+    \item This results in a line that poorly fits the majority of inliers
+\end{itemize}
+
+If we have outliers with residuals $r_{outlier} >> r_{inlier}$, then:
+$$r_{outlier}^2 >> r_{inlier}^2$$
+
+The total loss becomes dominated by outlier terms, causing the model to prioritize reducing outlier errors over fitting the main data pattern.
+
+\newpage
+\subsection{Modified Loss Function Schemes}
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.5\linewidth]{q12.png}
+\end{figure}
+
+Given the modified loss function: $\frac{1}{N}\sum_{i=1}^{N}a_i(y_i - \hat{y}_i)^2$\\
+\\
+
+\textbf{$a_i = 0.01$ for outliers, $a_i = 1$ for inliers}\\
+\\
+
+This scheme downweights outliers by a factor of 100:
+\begin{itemize}
+    \item Outlier contribution: $0.01 \times r_{outlier}^2$
+    \item Inlier contribution: $1 \times r_{inlier}^2$
+    \item This effectively neutralizes the outlier influence
+\end{itemize}
+
+\textbf{$a_i = 5$ for outliers, $a_i = 1$ for inliers}\\
+\\
+This scheme actually upweights outliers:
+\begin{itemize}
+    \item Outlier contribution: $5 \times r_{outlier}^2$
+    \item This amplifies the outlier effect by 5x
+    \item The model would be pulled even more strongly toward outliers
+    \item Results in worse fitting for inliers than standard OLS
+\end{itemize}
+
+\textbf{Conclusion:} \textbf{Scheme 1} will produce a better fitted line for inliers than the OLS fitted line. By reducing outlier weights to 0.01, the optimization focuses primarily on minimizing errors for the majority of data points (inliers), resulting in a line that better represents the main data pattern.
+
+\subsection{Why LR Not Suitable for Brain Region Analysis}
+
+Linear regression is not suitable for identifying predictive brain regions for several reasons:\\
+
+\textbf{1. Binary/Categorical Output:}
+\begin{itemize}
+    \item The task requires identifying which regions are "predictive" (yes/no decision)
+    \item Linear regression outputs continuous values, not discrete classifications
+    \item Need a method that provides selection/classification of important regions
+\end{itemize}
+
+\textbf{2. Feature Selection Problem:}
+\begin{itemize}
+    \item Brain imaging involves thousands of voxels (high-dimensional data)
+    \item Standard linear regression doesn't perform feature selection
+    \item Cannot identify which specific regions are most important
+    \item Risk of overfitting with many features and limited samples
+\end{itemize}
+
+\textbf{3. Multicollinearity:}
+\begin{itemize}
+    \item Adjacent voxels in brain regions are highly correlated
+    \item Linear regression struggles with multicollinear features
+    \item Coefficient estimates become unstable and unreliable
+\end{itemize}
+
+\textbf{4. Interpretability:}
+\begin{itemize}
+    \item Need to identify specific brain regions, not just predict outcomes
+    \item Standard linear regression provides coefficients for all features
+    \item Doesn't naturally group voxels into meaningful brain regions
+\end{itemize}
+
+\subsection{LASSO vs Group LASSO for Brain Analysis}
+
+\textbf{Method A: Standard LASSO}
+$$\min_{w} \left\{\frac{1}{N}\sum_{i=1}^{N}(y_i - w^T x_i)^2 + \lambda\|w\|_1\right\}$$
+
+\begin{itemize}
+    \item L1 penalty promotes sparsity at the individual voxel level
+    \item Selects individual voxels independently
+    \item May select scattered voxels across different brain regions
+    \item Doesn't respect the natural grouping structure of brain regions
+\end{itemize}
+
+\textbf{Method B: Group LASSO}
+$$\min_{w} \left\{\frac{1}{N}\sum_{i=1}^{N}(y_i - w^T x_i)^2 + \lambda\sum_{g=1}^{G}\|w_g\|_2\right\}$$
+
+\begin{itemize}
+    \item L2 norm on groups promotes group-level sparsity
+    \item Selects or eliminates entire brain regions (groups) together
+    \item Respects the anatomical structure of the brain
+    \item All voxels within a region are included or excluded as a unit
+\end{itemize}
+
+\textbf{Why Group LASSO is More Appropriate:}\\
+
+\textbf{1. Biological Interpretability:}
+\begin{itemize}
+    \item Brain functions are typically associated with entire regions, not individual voxels
+    \item Group LASSO identifies complete brain regions that are predictive
+    \item Results are more meaningful for neuroscience interpretation
+\end{itemize}
+
+\textbf{2. Statistical Stability:}
+\begin{itemize}
+    \item Individual voxel selection can be noisy and unstable
+    \item Group selection provides more robust and reproducible results
+    \item Reduces false positives from isolated voxel activations
+\end{itemize}
+
+\textbf{3. Handling Correlation:}
+\begin{itemize}
+    \item Voxels within a brain region are highly correlated
+    \item Standard LASSO might arbitrarily select one voxel from correlated groups
+    \item Group LASSO handles within-group correlation naturally
+\end{itemize}
+
+\textbf{4. Dimensionality Reduction:}
+\begin{itemize}
+    \item Selecting entire regions reduces the feature space more effectively
+    \item Provides better generalization with limited training samples
+\end{itemize}
+
+\textbf{Conclusion:} \textbf{Group LASSO (Method B)} is more appropriate for brain region analysis as it respects the natural anatomical grouping of voxels and provides biologically meaningful results.
+
+\section{Logistic Regression}
+
+\subsection{Data Loading and Initial Setup}
+\subsection{Errors Encountered and Resolution}\\
+
+When training the logistic regression model with the saga solver, the following errors were encountered:\\
+
+\textbf{Error 1: Non-numeric Features}
+\begin{itemize}
+    \item The dataset contains categorical features ('island' and 'sex')
+    \item Logistic regression requires numeric inputs
+    \item \textbf{Resolution:} Apply one-hot encoding or label encoding to categorical features
+\end{itemize}
+
+\begin{lstlisting}[caption={Handling categorical features}]
+# One-hot encode categorical features
+X_encoded = pd.get_dummies(X, columns=['island', 'sex'])
+
+# Alternative: Label encoding
+for col in ['island', 'sex']:
+    if col in X.columns:
+        le_feature = LabelEncoder()
+        X[col] = le_feature.fit_transform(X[col])
+\end{lstlisting}
+
+\textbf{Error 2: Convergence Warning}
+\begin{itemize}
+    \item Saga solver fails to converge within default iterations
+    \item Features have different scales, affecting optimization
+    \item \textbf{Resolution:} Increase max\_iter or apply feature scaling
+\end{itemize}
+
+\subsection{Why SAGA Solver Performs Poorly}
+
+The SAGA solver performs poorly due to:\\
+
+\textbf{1. Feature Scale Sensitivity:}
+\begin{itemize}
+    \item SAGA is a variance-reduced stochastic gradient method
+    \item Highly sensitive to feature scales
+    \item Unscaled features have vastly different ranges
+    \item This causes poor gradient estimates and slow convergence
+\end{itemize}
+
+\textbf{2. Small Dataset Size:}
+\begin{itemize}
+    \item SAGA is designed for large datasets
+    \item The penguins dataset is relatively small
+    \item Stochastic methods work better with more data points
+\end{itemize}
+
+\textbf{3. Convergence Issues:}
+\begin{itemize}
+    \item Requires many iterations to converge
+    \item Default max\_iter=100 is often insufficient
+    \item Poor initialization can lead to slow convergence
+\end{itemize}
+
+\subsection{Performance with Liblinear Solver}
+
+\begin{lstlisting}[caption={Using liblinear solver}]
+# Train with liblinear solver
+logreg_liblinear = LogisticRegression(solver='liblinear')
+logreg_liblinear.fit(X_train, y_train)
+
+# Evaluate
+y_pred = logreg_liblinear.predict(X_test)
+accuracy = accuracy_score(y_test, y_pred)
+print(f"Accuracy with liblinear: {accuracy:.4f}")
+\end{lstlisting}
+
+\textbf{Expected accuracy: $\approx$ 0.95-1.00} (The penguins dataset has well-separated classes)
+
+\subsection{Why Liblinear Performs Better than SAGA}
+\textbf{1. Algorithm Design:}
+\begin{itemize}
+    \item Liblinear uses coordinate descent or trust region Newton method
+    \item More stable for small-to-medium datasets
+    \item Better suited for the penguins dataset size
+\end{itemize}
+\textbf{2. Robustness to Scaling:}
+\begin{itemize}
+    \item Less sensitive to feature scaling than SAGA
+    \item Can handle unscaled features more effectively
+    \item More robust default parameters
+\end{itemize}
+\textbf{3. Convergence Properties:}
+\begin{itemize}
+    \item Deterministic optimization (not stochastic)
+    \item Faster convergence for small datasets
+    \item More reliable convergence guarantees
+\end{itemize}
+
+
+\subsection{Model Accuracy Variation}
+
+The model's accuracy varies with different random\_state values because:\\
+
+\textbf{1. Trainb Test Split Variation:}
+\begin{itemize}
+    \item Different random states create different train/test splits
+    \item Some splits may be more representative than others
+    \item Test set difficulty varies with different splits
+\end{itemize}
+
+\textbf{2. SAGA's Stochastic Nature:}
+\begin{itemize}
+    \item SAGA uses random sampling of data points
+    \item Different random states lead to different optimization paths
+    \item May converge to slightly different solutions
+\end{itemize}
+
+\textbf{3. Initialization Sensitivity:}
+\begin{itemize}
+    \item Random initialization of weights
+    \item SAGA is more sensitive to initialization than liblinear
+    \item Poor initialization can lead to suboptimal convergence
+\end{itemize}
+
+\subsection{Performance Comparison with Feature Scaling}
+
+\begin{lstlisting}[caption={Comparing solvers with feature scaling}]
+from sklearn.preprocessing import StandardScaler
+
+# Scale features
+scaler = StandardScaler()
+X_train_scaled = scaler.fit_transform(X_train)
+X_test_scaled = scaler.transform(X_test)
+
+# Train both solvers with scaled features
+solvers = ['liblinear', 'saga']
+for solver in solvers:
+    logreg = LogisticRegression(solver=solver, max_iter=1000)
+    logreg.fit(X_train_scaled, y_train)
+    y_pred = logreg.predict(X_test_scaled)
+    accuracy = accuracy_score(y_test, y_pred)
+    print(f"{solver} with scaling: {accuracy:.4f}")
+\end{lstlisting}
+
+\textbf{Expected Results:}
+\begin{itemize}
+    \item Liblinear: Minimal improvement (already robust)
+    \item SAGA: Significant improvement (now converges properly)
+\end{itemize}
+
+\textbf{Reason for Improvement with Scaling:}
+\begin{itemize}
+    \item Features have comparable scales after standardization
+    \item Gradient descent methods work more efficiently
+    \item Learning rate is appropriate for all features
+    \item Convergence is faster and more stable
+    \item SAGA benefits most as it's gradient-based
+\end{itemize}
+
+\subsection{Categorical Feature Encoding and Scaling}
+
+\textbf{Answer: NO, this approach is incorrect.}\\
+\\
+\textbf{1. Ordinal Relationship Introduction:}\\
+Label encoding assigns arbitrary integers to categories, for example red = 0, blue = 1, and green = 2. When these values are scaled, the model interprets them as ordered and assumes that green $>$ blue $>$ red. This introduces false distance relationships between categories that do not actually exist.\\
+\\
+\textbf{2. Statistical Assumptions Violation:}\\
+When scaled categorical variables are used, models treat them as continuous, which may cause interpolation between categories—for example, treating a value halfway between red and blue as meaningful, which is nonsensical. This also leads to coefficients and feature importance values that are difficult to interpret.\\
+\\
+\textbf{3. Misleading Model Interpretation:}\\
+When scaled categorical variables are used, models treat them as continuous, which may cause interpolation between categories—for example, treating a value halfway between red and blue as meaningful, which is nonsensical. This also leads to coefficients and feature importance values that are difficult to interpret.\\
+
+\textbf{Good approach as I think:}
+
+\begin{lstlisting}[caption={Correct handling of mixed feature types}]
+# Separate numerical and categorical features
+numerical_features = ['bill_length_mm', 'bill_depth_mm', 
+                     'flipper_length_mm', 'body_mass_g']
+categorical_features = ['island', 'sex']
+
+# Apply appropriate transformations
+from sklearn.compose import ColumnTransformer
+from sklearn.preprocessing import StandardScaler, OneHotEncoder
+
+preprocessor = ColumnTransformer(
+    transformers=[
+        ('num', StandardScaler(), numerical_features),
+        ('cat', OneHotEncoder(drop='first'), categorical_features)
+    ])
+
+# Transform the data
+X_processed = preprocessor.fit_transform(X)
+\end{lstlisting}
+
+\section{Logistic Regression: First/Second-Order Methods}
+
+\subsection{Data Generation}
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.5\linewidth]{q3.1.png}
+\end{figure}
+\subsection{Batch Gradient Descent Implementation}
+
+\textbf{GD final loss: 0.010862466896694496\\
+GD weights: [-0.08483967  0.94061496  1.0922774 ]}\\
+
+\begin{lstlisting}[caption={Batch Gradient Descent implementation}]
+def sigmoid(z):
+    return 1.0 / (1.0 + np.exp(-z))
+
+# Binary cross-entropy (log loss)
+def log_loss(w, Xb, yb, reg=0.0):
+    z = Xb @ w
+    p = sigmoid(z)
+    # Add small epsilon for numerical stability
+    eps = 1e-12
+    loss = -(yb * np.log(p + eps) + (1 - yb) * np.log(1 - p + eps)).mean()
+    if reg > 0:
+        loss += 0.5 * reg * np.sum(w[1:]**2)  # L2 on non-bias weights
+    return loss
+
+def gradient(w, Xb, yb, reg=0.0):
+    p = sigmoid(Xb @ w)
+    grad = (Xb.T @ (p - yb)) / Xb.shape[0]
+    if reg > 0:
+        g_reg = np.r_[0.0, reg * w[1:]]
+        grad = grad + g_reg
+    return grad
+
+def hessian(w, Xb):
+    p = sigmoid(Xb @ w)
+    S = p * (1 - p)
+    # X^T S X with S as diagonal weights
+    return (Xb.T * S) @ Xb / Xb.shape[0]
+
+# Batch Gradient Descent (20 iterations)
+np.random.seed(1)
+# Initialize small random weights to break symmetry; bias near 0
+w_gd = np.random.randn(X_aug.shape[1]) * 0.01
+
+eta = 0.5  # learning rate
+iters = 20
+loss_hist_gd = []
+
+for t in range(iters):
+    loss_hist_gd.append(log_loss(w_gd, X_aug, y))
+    g = gradient(w_gd, X_aug, y)
+    w_gd = w_gd - eta * g
+
+print("GD final loss:", loss_hist_gd[-1])
+print("GD weights:", w_gd)
+\end{lstlisting}
+
+\subsection{Loss Function Selection}
+
+\textbf{Loss Function Used:} Binary Cross-Entropy (BCE)
+
+$$L(w) = -\frac{1}{m}\sum_{i=1}^{m}[y_i \log(\hat{y}_i) + (1-y_i)\log(1-\hat{y}_i)]$$
+
+where $\hat{y}_i = \sigma(w^T x_i)$ and $\sigma(z) = \frac{1}{1+e^{-z}}$
+
+\textbf{Reasons for Selection:} BCE is ideal for binary classification because it provides a probabilistic interpretation, pairs naturally with the sigmoid activation, is convex (ensuring a global optimum), and is based on maximum likelihood estimation.
+
+
+\subsection{Newton's Method Implementation}
+
+\begin{lstlisting}[caption={Newton's Method implementation}]
+def newton_method(X, y, n_iterations=20):
+    m, n = X.shape
+    w = np.random.randn(n) * np.sqrt(2.0 / n)
+    losses = []
+    for i in range(n_iterations):
+        # Forward pass
+        z = X @ w
+        y_pred = sigmoid(z)
+        loss = binary_cross_entropy_loss(X, y, w)
+        losses.append(loss)
+        gradient = (1/m) * X.T @ (y_pred - y)
+        R = np.diag(y_pred * (1 - y_pred))
+        hessian = (1/m) * X.T @ R @ X
+        hessian = hessian + 1e-5 * np.eye(n)
+
+\end{lstlisting}
+\subsection{Loss Comparison and Analysis}
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.8\linewidth]{q32.png}
+\end{figure}
+
+Newton's method typically converges in fewer iterations because it uses second-order curvature (Hessian),
+while GD uses only first-order information and depends on the learning rate. On well-behaved convex loss,
+Newton often shows faster reduction in loss per iteration, though each iteration is more expensive.
+
+\subsection{Approaches to Decide Number of Iterations}
+
+\textbf{Approach 1: Convergence Tolerance}
+
+\begin{lstlisting}[caption={Convergence tolerance stopping criterion}]
+def train_with_tolerance(X, y, method='gd', tol=1e-6, max_iter=1000):
+    """Stop when loss change is below tolerance"""
+    losses = []
+    for i in range(max_iter):
+        # Compute current loss
+        loss = compute_loss(X, y, w)
+        losses.append(loss)
+        
+        # Check convergence
+        if i > 0 and abs(losses[-1] - losses[-2]) < tol:
+            print(f"Converged at iteration {i} (tolerance: {tol})")
+            break
+        
+        # Update weights (GD or Newton)
+        w = update_weights(w, method)
+    
+    return w, losses
+\end{lstlisting}
+
+\textbf{Advantages:}
+\begin{itemize}
+    \item Automatically stops when converged
+    \item Prevents unnecessary iterations
+    \item Adapts to problem difficulty
+\end{itemize}
+
+\textbf{Approach 2: Validation-Based Early Stopping}
+
+\begin{lstlisting}[caption={Validation-based early stopping}]
+def train_with_validation(X_train, y_train, X_val, y_val, 
+                         patience=5, max_iter=1000):
+    """Stop when validation loss stops improving"""
+    best_val_loss = float('inf')
+    patience_counter = 0
+    
+    for i in range(max_iter):
+        # Train on training set
+        w = update_weights(w, X_train, y_train)
+        
+        # Evaluate on validation set
+        val_loss = compute_loss(X_val, y_val, w)
+        
+        # Check for improvement
+        if val_loss < best_val_loss:
+            best_val_loss = val_loss
+            best_w = w.copy()
+            patience_counter = 0
+        else:
+            patience_counter += 1
+            
+        # Early stopping
+        if patience_counter >= patience:
+            print(f"Early stopping at iteration {i}")
+            break
+    
+    return best_w
+\end{lstlisting}
+
+\textbf{Advantages:}
+\begin{itemize}
+    \item Prevents overfitting
+    \item Uses validation performance as stopping criterion
+    \item More robust for real-world applications
+\end{itemize}
+
+\subsection{Analysis with Modified Centers}
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.75\linewidth]{q34.png}
+\end{figure}
+\begin{lstlisting}
+np.random.seed(0)
+centers = [[2, 2], [5, 1.5]]
+X2, y2 = make_blobs(n_samples=2000, centers=centers, random_state=5)
+transformation = np.array([[0.5, 0.5], [-0.5, 1.5]])
+X2 = np.dot(X2, transformation)
+X2_aug = np.c_[np.ones((X2.shape[0], 1)), X2]
+
+# GD again
+w2 = np.random.randn(X2_aug.shape[1]) * 0.01
+eta2 = 0.5
+iters = 20
+loss_hist_gd2 = []
+for t in range(iters):
+    loss_hist_gd2.append(log_loss(w2, X2_aug, y2))
+    g2 = gradient(w2, X2_aug, y2)
+    w2 = w2 - eta2 * g2
+\end{lstlisting}
+\textbf{Convergence Behavior Analysis:}
+\section*{Convergence Behavior Analysis}
+
+\textbf{1. Slower Convergence:} When classes are less separable, with centers closer together and significant overlap in feature space, the decision boundary becomes less distinct. Gradient magnitudes are smaller near overlapping regions, which slows down the learning process.\\
+\\
+\textbf{2. Higher Final Loss:} Overlapping classes prevent perfect separation, so the minimum achievable loss is higher. Some misclassifications are inevitable, limiting the model’s ultimate performance.\\
+\\
+\textbf{3. Oscillating Behavior:} Updates may oscillate near the decision boundary due to conflicting gradients from overlapping classes. In such cases, a smaller learning rate may be needed to maintain stability.\\
+\\
+\textbf{4. Mathematical Explanation:} The gradient of the loss is given by 
+\[
+\nabla L = \frac{1}{m} X^T (p - y).
+\] 
+For points near overlapping classes, $(p_i - y_i) \approx 0.5$, resulting in smaller, less decisive gradient updates. Consequently, the optimization landscape becomes flatter near the optimum, further slowing convergence.\\
+\\
+\textbf{5. Practical Implications:} Overlapping classes may require more iterations to converge. Using adaptive learning rates, incorporating regularization, or performing feature engineering to better separate classes can help improve convergence and model performance.
+
+\end{document}
